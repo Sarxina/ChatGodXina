@@ -8,7 +8,7 @@ from websockets_auth import WEBSOCKET_HOST, WEBSOCKET_PORT, WEBSOCKET_PASSWORD
 
 class OBSWebsocketsManager:
     ws = None
-    
+
     def __init__(self):
         # Connect to websockets
         self.ws = obsws(WEBSOCKET_HOST, WEBSOCKET_PORT, WEBSOCKET_PASSWORD)

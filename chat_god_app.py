@@ -10,10 +10,20 @@ import pytz
 import random
 import os
 from voices_manager import TTSManager
+
 load_dotenv()
 
 TWITCH_CHANNEL_NAME = os.getenv('TWITCH_CHANNEL_NAME')
-
+VOICE_OPTIONS = [
+    "en-US-DavisNeural",
+    "en-US-TonyNeural",
+    "en-US-JasonNeural",
+    "en-US-GuyNeural",
+    "en-US-JaneNeural",
+    "en-US-NancyNeural",
+    "en-US-JennyNeural",
+    "en-US-AriaNeural",
+]
 
 socketio = SocketIO
 app = Flask(__name__)
@@ -35,7 +45,7 @@ def toggletts(value):
 
 @socketio.on("pickrandom")
 def pickrandom(value):
-    twitchbot.randomUser(value['user_number'])
+    twitchbot.randomUser(int(value['user_number']))
     print("Getting new random user for user " + value['user_number'])
 
 
@@ -80,11 +90,19 @@ class GodUser:
     # dict of usernames and time last chatted
     user_pool = {}
 
+    voice_name = None
+    voice_style = "random"
+    tts_manager = None
+
     number = 0
 
-    def __init__(self, number):
+    def __init__(self, number, tts_manager=None, voice_name=None, voice_style=None):
+        """Constructor for the GodUser class"""
         self.number = number
         self.key_passphrase = f'!player{number}'
+        self.tts_manager = tts_manager
+        self.voice_name = voice_name if voice_name else random.choice(VOICE_OPTIONS)
+        self.voice_style = voice_style if voice_style else "random"
 
     def choose_god(self):
         self.name = random.choice(list(self.user_pool.keys()))
@@ -94,6 +112,31 @@ class GodUser:
             'user_number': self.number
         })
         print("Random User is: " + self.name)
+
+    def update_voice_name(self, voice_name):
+        """Setter for the god's voice name"""
+        self.voice_name = voice_name
+
+    def update_voice_style(self, voice_style):
+        """Setter for the god's voice style"""
+        self.voice_style = voice_style
+
+    def enable_move(self):
+        """Enable the OBS move filter for the god"""
+        self.tts_manager.obswebsockets_manager.set_filter_visibility("Line In", f"Audio Move - DnD Player {self.number}", True)
+    def disable_move(self):
+        """Disable the OBS move filter for the god"""
+        self.tts_manager.obswebsockets_manager.set_filter_visibility("Line In", f"Audio Move - DnD Player {self.number}", False)
+
+    def speak(self, text):
+        """Speak the given text using the god's TTS settings"""
+        if self.tts_enabled and self.tts_manager:
+            self.enable_move()
+            tts_file = self.tts_manager.azuretts_manager.text_to_audio(text, self.voice_name, self.voice_style)
+            self.disable_move()
+            self.tts_manager.audio_manager.play_audio(tts_file, True, True, True)
+        else:
+            print("TTS is not enabled for this user.")
 
 class Bot(commands.Bot):
     gods = []
@@ -112,15 +155,22 @@ class Bot(commands.Bot):
         return {self.gods[i].key_passphrase: self.gods[i].user_pool for i in range(len(self.gods))}
 
     def __init__(self, num_gods = 3):
-        self.gods = [GodUser(i) for i in range(1, num_gods + 1)]
+        load_dotenv()
         self.tts_manager = TTSManager()
+        self.gods = [
+            GodUser(number=i,
+                    tts_manager=self.tts_manager,
+                    voice_name=VOICE_OPTIONS[i - 1],
+                    voice_style="random",)
+            for i in range(1, num_gods + 1)]
 
         #connects to twitch channel
+        print("THe access token is: " + os.getenv('TWITCH_ACCESS_TOKEN'))
+        print("The channel name is: " + os.getenv('TWITCH_CHANNEL_NAME'))
+        print(os.getenv('TWITCH_ACCESS_TOKEN'))
         super().__init__(token=os.getenv('TWITCH_ACCESS_TOKEN'),
                          prefix='?',
                          initial_channels=[TWITCH_CHANNEL_NAME])
-
-
 
     async def event_ready(self):
         print(f'Logged in as | {self.nick}')
@@ -144,7 +194,7 @@ class Bot(commands.Bot):
                 'user_number': user.number
             })
             if user.tts_enabled:
-                self.tts_manager.text_to_audio(message.content, user.number)
+                user.speak(message.content)
 
         if message.content in self.keyphrase_to_user_pool:
             user_pool = self.keyphrase_to_user_pool[message.content]
@@ -172,10 +222,11 @@ class Bot(commands.Bot):
             print(f"Error in randomUser: {e}")
 
     def update_voice_name(self, user_number, voice_name):
-        self.tts_manager.update_voice_name(user_number, voice_name)
+        self.gods[user_number - 1].update_voice_name(voice_name)
 
     def update_voice_style(self, user_number, voice_style):
-        self.tts_manager.update_voice_style(user_number, voice_style)
+        """Update the voice style for the given god"""
+        self.gods[user_number - 1].update_voice_style(voice_style)
 
 
 def startTwitchBot():
