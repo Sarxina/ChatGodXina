@@ -25,7 +25,7 @@ class TTSManager:
             self.user2_voice_name = voice_name
         elif user_number == "3":
             self.user3_voice_name = voice_name
-        
+
     def update_voice_style(self, user_number, voice_style):
         if user_number == "1":
             self.user1_voice_style = voice_style

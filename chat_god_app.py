@@ -3,20 +3,23 @@ from twitchio import *
 from datetime import datetime, timedelta
 from flask import Flask, render_template, session, request
 from flask_socketio import SocketIO, emit
+from dotenv import load_dotenv
 import asyncio
 import threading
 import pytz
-import random 
+import random
 import os
 from voices_manager import TTSManager
+load_dotenv()
 
-TWITCH_CHANNEL_NAME = 'dougdoug' # Replace this with your channel name
+TWITCH_CHANNEL_NAME = os.getenv('TWITCH_CHANNEL_NAME')
+
 
 socketio = SocketIO
 app = Flask(__name__)
 socketio = SocketIO(app, async_mode="threading")
 print(socketio.async_mode)
- 
+
 @app.route("/")
 def home():
     return render_template('index.html') #redirects to index.html in templates folder
@@ -28,38 +31,31 @@ def connect(): #when socket connects, send data confirming connection
 @socketio.on("tts")
 def toggletts(value):
     print("TTS: Received the value " + str(value['checked']))
-    if value['user_number'] == "1":
-        twitchbot.tts_enabled_1 = value['checked']
-    elif value['user_number'] == "2":
-        twitchbot.tts_enabled_2 = value['checked']
-    elif value['user_number'] == "3":
-        twitchbot.tts_enabled_3 = value['checked']
+    twitchbot.gods[int(value['user_number']) - 1].tts_enabled = value['checked']
 
 @socketio.on("pickrandom")
 def pickrandom(value):
     twitchbot.randomUser(value['user_number'])
     print("Getting new random user for user " + value['user_number'])
 
+
+
+
 @socketio.on("choose")
 def chooseuser(value):
-    if value['user_number'] == "1":
-        twitchbot.current_user_1 = value['chosen_user'].lower()
-        socketio.emit('message_send',
-            {'message': f"{twitchbot.current_user_1} was picked!",
-            'current_user': f"{twitchbot.current_user_1}",
-            'user_number': value['user_number']})
-    elif value['user_number'] == "2":
-        twitchbot.current_user_2 = value['chosen_user'].lower()
-        socketio.emit('message_send',
-            {'message': f"{twitchbot.current_user_2} was picked!",
-            'current_user': f"{twitchbot.current_user_2}",
-            'user_number': value['user_number']})
-    elif value['user_number'] == "3":
-        twitchbot.current_user_3 = value['chosen_user'].lower()
-        socketio.emit('message_send',
-            {'message': f"{twitchbot.current_user_3} was picked!",
-            'current_user': f"{twitchbot.current_user_3}",
-            'user_number': value['user_number']})
+    """Choose a user for the given god"""
+
+    # Check to see if we have enough gods
+    if len(twitchbot.gods) < int(value['user_number']):
+        return
+
+    twitchbot.gods[int(value['user_number']) - 1].name = value['chosen_user'].lower()
+    socketio.emit('message_send', {
+        'message': f"{value['chosen_user']} was picked!",
+        'current_user': f"{value['chosen_user']}",
+        'user_number': value['user_number']
+    })
+
 
 @socketio.on("voicename")
 def choose_voice_name(value):
@@ -74,29 +70,58 @@ def choose_voice_style(value):
         print("Updating voice style to: " + value['voice_style'])
 
 
+class GodUser:
+    # Current username of the god
+    name = None
+    # Whether TTS is enabled for this user
+    tts_enabled = True
+    # Passphrase to become this user
+    key_passphrase = ""
+    # dict of usernames and time last chatted
+    user_pool = {}
+
+    number = 0
+
+    def __init__(self, number):
+        self.number = number
+        self.key_passphrase = f'!player{number}'
+
+    def choose_god(self):
+        self.name = random.choice(list(self.user_pool.keys()))
+        socketio.emit('message_send', {
+            'message': f"{self.name} was picked!",
+            'current_user': f"{self.name}",
+            'user_number': self.number
+        })
+        print("Random User is: " + self.name)
+
 class Bot(commands.Bot):
-    current_user_1 = None
-    current_user_2 = None
-    current_user_3 = None
-    tts_enabled_1 = True
-    tts_enabled_2 = True
-    tts_enabled_3 = True
-    keypassphrase_1 = "!player1"
-    keypassphrase_2 = "!player2"
-    keypassphrase_3 = "!player3"
-    user_pool_1 = {} #dict of username and time last chatted
-    user_pool_2 = {} #dict of username and time last chatted
-    user_pool_3 = {} #dict of username and time last chatted
+    gods = []
     seconds_active = 450 # of seconds until a chatter is booted from the list
     max_users = 2000 # of users who can be in user pool
     tts_manager = None
 
-    def __init__(self):
+    @property
+    def name_to_user(self):
+        """Maps the 3 god's current usernames to user object"""
+        return {self.gods[i].name: self.gods[i] for i in range(len(self.gods))}
+
+    @property
+    def keyphrase_to_user_pool(self):
+        """Maps the 3 god's keyphrases to their user pool"""
+        return {self.gods[i].key_passphrase: self.gods[i].user_pool for i in range(len(self.gods))}
+
+    def __init__(self, num_gods = 3):
+        self.gods = [GodUser(i) for i in range(1, num_gods + 1)]
         self.tts_manager = TTSManager()
 
         #connects to twitch channel
-        super().__init__(token=os.getenv('TWITCH_ACCESS_TOKEN'), prefix='?', initial_channels=[TWITCH_CHANNEL_NAME])
-    
+        super().__init__(token=os.getenv('TWITCH_ACCESS_TOKEN'),
+                         prefix='?',
+                         initial_channels=[TWITCH_CHANNEL_NAME])
+
+
+
     async def event_ready(self):
         print(f'Logged in as | {self.nick}')
         print(f'User id is | {self.user_id}')
@@ -109,96 +134,42 @@ class Bot(commands.Bot):
         # print("Their message was " + message.content)
 
         # If this is our current_user, read out their message
-        if message.author.name == self.current_user_1:
-            socketio.emit('message_send',
-                {'message': f"{message.content}",
-                'current_user': f"{self.current_user_1}",
-                'user_number': "1"})
-            if self.tts_enabled_1:
-                self.tts_manager.text_to_audio(message.content, "1")
-        elif message.author.name == self.current_user_2:
-            socketio.emit('message_send',
-                {'message': f"{message.content}",
-                'current_user': f"{self.current_user_2}",
-                'user_number': "2"})
-            if self.tts_enabled_2:
-                self.tts_manager.text_to_audio(message.content, "2")
-        elif message.author.name == self.current_user_3:
-            socketio.emit('message_send',
-                {'message': f"{message.content}",
-                'current_user': f"{self.current_user_3}",
-                'user_number': "3"})
-            if self.tts_enabled_3:
-                self.tts_manager.text_to_audio(message.content, "3")
 
-        # Add this chatter to the user_pool
-        if message.content == self.keypassphrase_1:
-            if message.author.name.lower() in self.user_pool_1: # Remove this chatter from pool if they're already there
-                self.user_pool_1.pop(message.author.name.lower())
-            self.user_pool_1[message.author.name.lower()] = message.timestamp # Add user to end of pool with new msg time
+        if message.author.name in self.name_to_user:
+            user = self.name_to_user[message.author.name]
+
+            socketio.emit('message_send', {
+                'message': f'{message.content}',
+                'current_user': f'{user.name}',
+                'user_number': user.number
+            })
+            if user.tts_enabled:
+                self.tts_manager.text_to_audio(message.content, user.number)
+
+        if message.content in self.keyphrase_to_user_pool:
+            user_pool = self.keyphrase_to_user_pool[message.content]
+
+            if message.author.name.lower() in user_pool:
+                # Remove this chatter from pool if they're already there
+                user_pool.pop(message.author.name.lower())
+            # Add user to end of pool with new msg time
+            user_pool[message.author.name.lower()] = message.timestamp
             # Now we remove the oldest viewer if they're past the activity threshold, or if we're past the max # of users
-            activity_threshold = datetime.now(pytz.utc) - timedelta(seconds=self.seconds_active) # calculate the cutoff time
-            oldest_user = list(self.user_pool_1.keys())[0] # The first user in the dict is the user who chatted longest ago
-            if self.user_pool_1[oldest_user].replace(tzinfo=pytz.utc) < activity_threshold or len(self.user_pool_1) > self.max_users:
-                self.user_pool_1.pop(oldest_user) # remove them from the list
-                if len(self.user_pool_1) == self.max_users:
+            activity_threshold = datetime.now(pytz.utc) - timedelta(seconds=self.seconds_active)  # calculate the cutoff time
+            oldest_user = list(user_pool.keys())[0]  # The first user in the dict is the user who chatted longest ago
+            if user_pool[oldest_user].replace(tzinfo=pytz.utc) < activity_threshold or len(user_pool) > self.max_users:
+                user_pool.pop(oldest_user)
+                if len(user_pool) == self.max_users:
                     print(f"{oldest_user} was popped due to hitting max users")
                 else:
                     print(f"{oldest_user} was popped due to not talking for {self.seconds_active} seconds")
-        elif message.content == self.keypassphrase_2:
-            if message.author.name.lower() in self.user_pool_2: # Remove this chatter from pool if they're already there
-                self.user_pool_2.pop(message.author.name.lower())
-            self.user_pool_2[message.author.name.lower()] = message.timestamp # Add user to end of pool with new msg time
-            # Now we remove the oldest viewer if they're past the activity threshold, or if we're past the max # of users
-            activity_threshold = datetime.now(pytz.utc) - timedelta(seconds=self.seconds_active) # calculate the cutoff time
-            oldest_user = list(self.user_pool_2.keys())[0] # The first user in the dict is the user who chatted longest ago
-            if self.user_pool_2[oldest_user].replace(tzinfo=pytz.utc) < activity_threshold or len(self.user_pool_2) > self.max_users:
-                self.user_pool_2.pop(oldest_user) # remove them from the list
-                if len(self.user_pool_2) == self.max_users:
-                    print(f"{oldest_user} was popped due to hitting max users")
-                else:
-                    print(f"{oldest_user} was popped due to not talking for {self.seconds_active} seconds")
-        elif message.content == self.keypassphrase_3:
-            if message.author.name.lower() in self.user_pool_3: # Remove this chatter from pool if they're already there
-                self.user_pool_3.pop(message.author.name.lower())
-            self.user_pool_3[message.author.name.lower()] = message.timestamp # Add user to end of pool with new msg time
-            # Now we remove the oldest viewer if they're past the activity threshold, or if we're past the max # of users
-            activity_threshold = datetime.now(pytz.utc) - timedelta(seconds=self.seconds_active) # calculate the cutoff time
-            oldest_user = list(self.user_pool_3.keys())[0] # The first user in the dict is the user who chatted longest ago
-            if self.user_pool_3[oldest_user].replace(tzinfo=pytz.utc) < activity_threshold or len(self.user_pool_3) > self.max_users:
-                self.user_pool_3.pop(oldest_user) # remove them from the list
-                if len(self.user_pool_3) == self.max_users:
-                    print(f"{oldest_user} was popped due to hitting max users")
-                else:
-                    print(f"{oldest_user} was popped due to not talking for {self.seconds_active} seconds")
-                
-                
-    #picks a random user from the queue
+
     def randomUser(self, user_number):
+        """Choose the user for the given god"""
         try:
-            if user_number == "1":
-                self.current_user_1 = random.choice(list(self.user_pool_1.keys()))
-                socketio.emit('message_send',
-                    {'message': f"{self.current_user_1} was picked!",
-                    'current_user': f"{self.current_user_1}",
-                    'user_number': user_number})
-                print("Random User is: " + self.current_user_1)
-            elif user_number == "2":
-                self.current_user_2 = random.choice(list(self.user_pool_2.keys()))
-                socketio.emit('message_send',
-                    {'message': f"{self.current_user_2} was picked!",
-                    'current_user': f"{self.current_user_2}",
-                    'user_number': user_number})
-                print("Random User is: " + self.current_user_2)
-            elif user_number == "3":
-                self.current_user_3 = random.choice(list(self.user_pool_3.keys()))
-                socketio.emit('message_send',
-                    {'message': f"{self.current_user_3} was picked!",
-                    'current_user': f"{self.current_user_3}",
-                    'user_number': user_number})
-                print("Random User is: " + self.current_user_3)
-        except Exception:
-            return
+            self.gods[user_number - 1].choose_god()
+        except Exception as e:
+            print(f"Error in randomUser: {e}")
 
     def update_voice_name(self, user_number, voice_name):
         self.tts_manager.update_voice_name(user_number, voice_name)
@@ -214,9 +185,9 @@ def startTwitchBot():
     twitchbot.run()
 
 if __name__=='__main__':
-    
+
     # Creates and runs the twitchio bot on a separate thread
     bot_thread = threading.Thread(target=startTwitchBot)
     bot_thread.start()
-    
+
     socketio.run(app)
