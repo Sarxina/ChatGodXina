@@ -79,6 +79,6 @@ local function update_bounce_targets()
 end
 
 function script_load(settings)
-  obs.timer_add(update_bounce_targets, 200)
+  obs.timer_add(update_bounce_targets, 25)
   obs.timer_add(bounce_tick, bounce_timer_ms)
 end

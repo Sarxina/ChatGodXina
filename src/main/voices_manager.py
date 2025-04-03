@@ -1,6 +1,6 @@
-from audio_player import AudioManager
-from obs_websockets import OBSWebsocketsManager
-from azure_text_to_speech import AzureTTSManager
+from src.main.audio_player import AudioManager
+from src.main.obs_websockets import OBSWebsocketsManager
+from src.main.azure_text_to_speech import AzureTTSManager
 
 class TTSManager:
     azuretts_manager = AzureTTSManager()

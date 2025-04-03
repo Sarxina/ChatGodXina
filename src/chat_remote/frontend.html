@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Chat-Controlled YouTube</title>
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script src="https://cdn.socket.io/4.3.2/socket.io.min.js"></script>
+  <style>
+    body { margin: 0; background: black; display: flex; justify-content: center; align-items: center; height: 100vh; }
+    #player { width: 100%; height: 100%; max-width: 1280px; max-height: 720px; }
+  </style>
+</head>
+<body>
+  <div id="player"></div>
+
+  <script>
+    let player
+    function onYouTubeIframeAPIReady() {
+      player = new YT.Player('player', {
+        height: '720',
+        width: '1280',
+        videoId: 'tTC7FExiH8I', // start blank
+        events: {
+          'onReady': onPlayerReady
+        }
+      })
+    }
+
+    function onPlayerReady(event) {
+      console.log('Player ready')
+    }
+
+    function loadVideoById(videoId) {
+      if (player && player.loadVideoById) {
+        player.loadVideoById(videoId)
+      }
+    }
+
+    const socket = io('/chatremote')
+    socket.on('load_video', data => {
+      if (data && data.videoId) {
+        loadVideoById(data.videoId)
+      }
+    })
+  </script>
+</body>
+</html>

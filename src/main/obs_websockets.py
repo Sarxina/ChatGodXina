@@ -1,7 +1,7 @@
 import time
 import sys
 from obswebsocket import obsws, requests  # noqa: E402
-from websockets_auth import WEBSOCKET_HOST, WEBSOCKET_PORT, WEBSOCKET_PASSWORD
+from src.main.websockets_auth import WEBSOCKET_HOST, WEBSOCKET_PORT, WEBSOCKET_PASSWORD
 
 ##########################################################
 ##########################################################
@@ -34,8 +34,18 @@ class OBSWebsocketsManager:
     # Set the visibility of any source
     def set_source_visibility(self, scene_name, source_name, source_visible=True):
         response = self.ws.call(requests.GetSceneItemId(sceneName=scene_name, sourceName=source_name))
+        test_response = self.ws.call(requests.GetSceneItemList(sceneName=scene_name))
         myItemID = response.datain['sceneItemId']
         self.ws.call(requests.SetSceneItemEnabled(sceneName=scene_name, sceneItemId=myItemID, sceneItemEnabled=source_visible))
+
+    def set_filter_visibility(self, source_name, filter_name, filter_enabled=True):
+        response = self.ws.call(
+            requests.SetSourceFilterEnabled(
+                sourceName=source_name,
+                filterName=filter_name,
+                filterEnabled=filter_enabled
+            )
+        )
 
     # Returns the current text of a text source
     def get_text(self, source_name):

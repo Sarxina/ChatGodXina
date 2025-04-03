@@ -54,6 +54,7 @@ class AzureTTSManager:
 
     def __init__(self):
         pygame.init()
+        load_dotenv()
         # Creates an instance of a speech config with specified subscription key and service region.
         # Replace with your own subscription key and service region (e.g., "westus").\
         self.tts_key = os.getenv('AZURE_TTS_KEY')
@@ -101,7 +102,6 @@ class AzureTTSManager:
             audiosegment.export(output, format="wav")
 
         return output
-
 
 # Tests here
 if __name__ == '__main__':
