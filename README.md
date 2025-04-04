@@ -13,7 +13,7 @@ First you must generate a Access Token for your account. You can do this at: htt
 Once you've generated an Access Token, set it as a windows environment variable named TWITCH_ACCESS_TOKEN.
 Then update the TWITCH_CHANNEL_NAME variable in chat_god_app.py to the name of the twitch channel you are connecting to.
 
-4) This uses Microsoft Azure's TTS service for the text-to-speech voices. 
+4) This uses Microsoft Azure's TTS service for the text-to-speech voices.
 First you must make an account and sign up for Microsoft Azure's services.
 Then use their site to generate an access key and region for the text-to-speech service.
 Then, set these as windows environment variables named AZURE_TTS_KEY and AZURE_TTS_REGION.

@@ -1,5 +1,6 @@
 import os
 import random
+from dotenv import load_dotenv
 import azure.cognitiveservices.speech as speechsdk
 from gtts import gTTS
 from pydub import AudioSegment
@@ -48,16 +49,21 @@ AZURE_PREFIXES = {
 class AzureTTSManager:
     azure_speechconfig = None
     azure_synthesizer = None
+    tts_key = None
+    tts_region = None
 
     def __init__(self):
         pygame.init()
+        load_dotenv()
         # Creates an instance of a speech config with specified subscription key and service region.
-        # Replace with your own subscription key and service region (e.g., "westus").
+        # Replace with your own subscription key and service region (e.g., "westus").\
+        self.tts_key = os.getenv('AZURE_TTS_KEY')
+        self.tts_region = os.getenv('AZURE_TTS_REGION')
         self.azure_speechconfig = speechsdk.SpeechConfig(subscription=os.getenv('AZURE_TTS_KEY'), region=os.getenv('AZURE_TTS_REGION'))
         # Set the voice name, refer to https://aka.ms/speech/voices/neural for full list.
         self.azure_speechconfig.speech_synthesis_voice_name = "en-US-AriaNeural"
         # Creates a speech synthesizer. Setting audio_config to None means it wont play the synthesized text out loud.
-        self.azure_synthesizer = speechsdk.SpeechSynthesizer(speech_config=self.azure_speechconfig, audio_config=None)        
+        self.azure_synthesizer = speechsdk.SpeechSynthesizer(speech_config=self.azure_speechconfig, audio_config=None)
 
     # Returns the path to the new .wav file
     def text_to_audio(self, text: str, voice_name="random", voice_style="random"):
@@ -97,7 +103,6 @@ class AzureTTSManager:
 
         return output
 
-
 # Tests here
 if __name__ == '__main__':
     tts_manager = AzureTTSManager()
@@ -114,4 +119,3 @@ if __name__ == '__main__':
         file_path = tts_manager.text_to_audio(stuff_to_say)
         pygame.mixer.music.load(file_path)
         pygame.mixer.music.play()
-        
