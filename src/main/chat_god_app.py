@@ -197,11 +197,11 @@ class Bot(commands.Bot):
             print(f"Error in randomUser: {e}")
 
     def update_voice_name(self, user_number, voice_name):
-        self.gods[user_number - 1].update_voice_name(voice_name)
+        self.gods[int(user_number) - 1].update_voice_name(voice_name)
 
     def update_voice_style(self, user_number, voice_style):
         """Update the voice style for the given god"""
-        self.gods[user_number - 1].update_voice_style(voice_style)
+        self.gods[int(user_number) - 1].update_voice_style(voice_style)
 
 class ChatGodApp:
     def __init__(self):

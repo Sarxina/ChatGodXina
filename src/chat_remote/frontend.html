@@ -3,7 +3,7 @@
 <head>
   <title>Chat-Controlled YouTube</title>
   <script src="https://www.youtube.com/iframe_api"></script>
-  <script src="https://cdn.socket.io/4.3.2/socket.io.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.0.4/socket.io.js"></script>
   <style>
     body { margin: 0; background: black; display: flex; justify-content: center; align-items: center; height: 100vh; }
     #player { width: 100%; height: 100%; max-width: 1280px; max-height: 720px; }
@@ -36,7 +36,9 @@
     }
 
     const socket = io('/chatremote')
+    console.log('Socket:', socket)
     socket.on('load_video', data => {
+      console.log("Hit load video")
       if (data && data.videoId) {
         loadVideoById(data.videoId)
       }

@@ -1,3 +1,4 @@
 .env
 venv
 *.pyc
+/src/chat_remote/youtube_secret.json
