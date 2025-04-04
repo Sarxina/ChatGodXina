@@ -55,13 +55,16 @@ class ChatRemote(ChatGodApp):
             maxResults=1
         )
         response = request.execute()
+        print("Response:", response)
         return response['items'][0]['id']['videoId']
 
     def _get_youtube_query(self, msg):
         """Extracts the YouTube query from the message."""
-        if msg.content.startswith('i wanna watch '):
-            return msg.content.replace('i wanna watch ', '', 1).strip()
-        return None
+        commands = ['i wanna watch', 'i want to watch']
+
+        # get the first command that matches the messag
+        matched = next((cmd for cmd in commands if msg.content.lower().startswith(cmd + ' ')), None)
+        return msg.content.replace(matched + ' ', '', 1).strip() if matched else None
 
     async def _handle_god_messages(self, message):
         """Attempts to change the channel"""

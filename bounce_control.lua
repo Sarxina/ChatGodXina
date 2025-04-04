@@ -53,28 +53,29 @@ local function is_filter_enabled(source, filter_name)
 end
 
 local function update_bounce_targets()
-  local sources = obs.obs_enum_sources()
-  if not sources then return end
+  --- Recursively looks at scene sources --
+  local function scan_scene(scene_source, active_targets)
+    local scene = obs.obs_scene_from_source(scene_source)
+    if not scene then return end
 
-  local active_targets = {}
-  for _, source in ipairs(sources) do
-    local source_name = obs.obs_source_get_name(source)
+    local items = obs.obs_scene_enum_items(scene)
+    for _, item in ipairs(items) do
+      local source = obs.obs_sceneitem_get_source(item)
+      local source_name = obs.obs_source_get_name(source)
+      local source_id = obs.obs_source_get_id(source)
 
-    if is_filter_enabled(source, 'Chat God Talk') then
-      local scene = obs.obs_frontend_get_current_scene()
-      local scene_obj = obs.obs_scene_from_source(scene)
-      local item = obs.obs_scene_find_source(scene_obj, source_name)
-
-      if item then
+      if is_filter_enabled(source, 'Chat God Talk') then
         active_targets[source_name] = item
+      elseif source_id == 'scene' then
+        scan_scene(source, active_targets)
       end
-
-      obs.obs_source_release(scene)
     end
-
-    obs.obs_source_release(source)
+    obs.sceneitem_list_release(items)
   end
 
+  local current_scene_source = obs.obs_frontend_get_current_scene()
+  local active_targets = {}
+  scan_scene(current_scene_source, active_targets)
   bounce_targets = active_targets
 end
 

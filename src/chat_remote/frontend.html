@@ -16,8 +16,8 @@
     let player
     function onYouTubeIframeAPIReady() {
       player = new YT.Player('player', {
-        height: '720',
-        width: '1280',
+        height: '1080',
+        width: '1920',
         videoId: 'tTC7FExiH8I', // start blank
         events: {
           'onReady': onPlayerReady
@@ -26,6 +26,8 @@
     }
 
     function onPlayerReady(event) {
+      event.target.playVideo()
+      event.target.setVolume(15)
       console.log('Player ready')
     }
 
