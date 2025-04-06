@@ -76,6 +76,12 @@ class ChatRemote(ChatGodApp):
                 print("Video ID found:", video_id)
                 self.socketio.emit('load_video', {'videoId': video_id}, namespace='/chatremote')
                 self.socketio.emit('message_send', {'message': 'Sent load_video'}, namespace='/chatgod')
+        elif message.content.lower().startswith('pause'):
+            self.socketio.emit('pause_video', {}, namespace='/chatremote')
+            self.socketio.emit('message_send', {'message': 'Sent pause_video'}, namespace='/chatgod')
+        elif message.content.lower().startswith('play'):
+            self.socketio.emit('play_video', {}, namespace='/chatremote')
+            self.socketio.emit('message_send', {'message': 'Sent play_video'}, namespace='/chatgod')
 
 
     async def handle_god_messages(self, message):

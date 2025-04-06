@@ -38,13 +38,23 @@
     }
 
     const socket = io('/chatremote')
-    console.log('Socket:', socket)
     socket.on('load_video', data => {
-      console.log("Hit load video")
       if (data && data.videoId) {
         loadVideoById(data.videoId)
       }
     })
+    socket.on('pause', () => {
+      if (player && player.pauseVideo) {
+        player.pauseVideo()
+      }
+    })
+
+    socket.on('play', () => {
+      if (player && player.playVideo) {
+        player.playVideo()
+      }
+    })
+
   </script>
 </body>
 </html>
